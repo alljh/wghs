@@ -1,0 +1,248 @@
+:root {
+    --primary-color: #BC7BD2; /* 主要紫色 */
+    --secondary-color: #00C2D8; /* 藍色 */
+    --accent-color: #9B4FA6; /* 深紫色 */
+    --background-color: #FFFFFF; /* 白色背景 */
+    --text-color: #333333;
+    --button-gradient: linear-gradient(135deg, #BC7BD2, #00C2D8);
+    --card-background: rgba(255, 255, 255, 0.98);
+    --input-background: rgba(255, 255, 255, 0.95);
+    --input-border: #BC7BD2;
+    --input-focus: #00C2D8;
+    --success-color: #10B981;
+    --error-color: #EF4444;
+    --shadow-color: rgba(188, 123, 210, 0.25);
+    --hover-shadow: rgba(188, 123, 210, 0.4);
+
+    /* 深色模式變量 */
+    --dark-background: #1a1a1a;
+    --dark-card-background: rgba(30, 30, 30, 0.98);
+    --dark-text-color: #ffffff;
+    --dark-input-background: rgba(40, 40, 40, 0.95);
+    --dark-shadow-color: rgba(0, 0, 0, 0.4);
+}
+
+body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: linear-gradient(135deg, #f6f8ff 0%, #ffffff 100%);
+    color: var(--text-color);
+    line-height: 1.8;
+    position: relative;
+    overflow: hidden;
+    min-height: 100vh;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.4);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border-left-color: #ffffff;
+    animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    box-shadow: 0 0 15px rgba(188, 123, 210, 0.2);
+}
+
+.card {
+    background-color: var(--card-background);
+    border-radius: 3rem;
+    box-shadow: 
+        0 10px 40px -10px var(--shadow-color),
+        0 0 20px -5px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(188, 123, 210, 0.2);
+    backdrop-filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 
+        0 20px 50px -15px var(--hover-shadow),
+        0 0 30px -5px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-button {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--input-background);
+    color: var(--text-color);
+    border: 2px solid var(--input-border);
+    font-weight: 600;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 15px -3px var(--shadow-color);
+}
+
+.toggle-button.active {
+    background: var(--button-gradient);
+    color: white;
+    box-shadow: 0 15px 30px var(--shadow-color);
+    transform: translateY(-4px);
+}
+
+textarea, input[type="text"] {
+    background-color: var(--input-background);
+    border: 2px solid var(--input-border);
+    border-radius: 1.6rem;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 1.2rem;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.08),
+        0 4px 15px -3px var(--shadow-color);
+    padding: 1.2rem 1.5rem;
+}
+
+textarea:focus, input[type="text"]:focus {
+    border-color: var(--input-focus);
+    box-shadow: 
+        0 0 0 4px rgba(167, 139, 250, 0.25),
+        0 8px 20px -4px var(--shadow-color);
+    outline: none;
+    transform: translateY(-4px);
+}
+
+.submit-button {
+    background: var(--button-gradient);
+    color: white;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 2.4rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 
+        0 8px 20px -4px var(--shadow-color),
+        0 0 0 2px rgba(188, 123, 210, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.submit-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 
+        0 12px 25px -5px var(--hover-shadow),
+        0 0 0 3px rgba(188, 123, 210, 0.2);
+}
+
+.submit-button:active {
+    transform: scale(0.97);
+}
+
+@media (max-width: 640px) {
+    .card {
+        border-radius: 2.4rem;
+    }
+}
+
+#mediaPreview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.6rem;
+    padding: 1.6rem;
+}
+
+#mediaPreview img, #mediaPreview video {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 1.6rem;
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#mediaPreview img:hover, #mediaPreview video:hover {
+    transform: scale(1.05) translateY(-5px);
+    box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+}
+
+.media-upload-area {
+    border: 2.5px solid var(--primary-color);
+    border-radius: 1.6rem;
+    padding: 2.5rem;
+    text-align: center;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--input-background);
+    cursor: pointer;
+    box-shadow: 0 8px 20px -4px var(--shadow-color);
+}
+
+.media-upload-area:hover {
+    border-color: var(--accent-color);
+    background: rgba(188, 123, 210, 0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px -6px var(--hover-shadow);
+}
+
+.upload-button {
+    background: var(--button-gradient);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 1.4rem;
+    font-weight: 600;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 8px 20px -4px var(--shadow-color);
+}
+
+.upload-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 25px -5px var(--hover-shadow);
+}
+
+/* 改進響應式設計 */
+@media (max-width: 768px) {
+    .card {
+        padding: 1.8rem !important;
+        margin: 1rem;
+        border-radius: 1.8rem;
+    }
+
+    h1 {
+        font-size: 2.8rem !important;
+        margin-bottom: 2rem !important;
+    }
+
+    textarea {
+        font-size: 1.1rem !important;
+        padding: 1.2rem !important;
+    }
+
+    .submit-button {
+        padding: 1.2rem !important;
+        font-size: 1.3rem !important;
+    }
+
+    .media-upload-area {
+        padding: 1.8rem;
+    }
+}
+
+/* 深色模式樣式 */
+body.dark-mode {
+    background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+    color: var(--dark-text-color);
+}
+
+.dark-mode .card {
+    background-color: var(--dark-card-background);
+    border-color: rgba(188, 123, 210, 0.1);
+}
+
+.dark-mode textarea,
+.dark-mode input[type="text"],
+.dark-mode select {
+    background-color: var(--dark-input-background);
+    color: var(--dark-text-color);
+    border-color: rgba(188, 123, 210, 0.3);
+}
+
+.dark-mode .toggle-button:not(.active) {
+    background-color: var(--dark-input-background);
+    color: var(--dark-text-color);
+}
+
+.dark-mode .media-upload-area {
+    background: var(--dark-input-background);
+    border-color: rgba(188, 123, 210, 0.3);
+}
