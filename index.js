@@ -74,7 +74,11 @@ const firebaseConfig = {
           return deleteButton;
       }
   
-      document.getElementById('postForm').addEventListener('submit', async function(e) {
+      // 移除重複的表單提交監聽器，只保留一個
+      const postForm = document.getElementById('postForm');
+      postForm.removeEventListener('submit', handleSubmit); // 移除可能存在的舊監聽器
+
+      async function handleSubmit(e) {
           e.preventDefault();
           
           const content = postContent.value;
@@ -84,8 +88,9 @@ const firebaseConfig = {
               return;
           }
           
-          submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
+          // 禁用提交按鈕，防止重複提交
           submitButton.disabled = true;
+          submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
           
           try {
               const ipResponse = await fetch('https://api.ipify.org?format=json');
@@ -100,38 +105,86 @@ const firebaseConfig = {
                   await storageRef.put(file);
                   const url = await storageRef.getDownloadURL();
                   mediaUrls.push({
-                      url: url, 
+                      url: url,
                       type: 'image'
                   });
               }
-  
-              const postsSnapshot = await db.collection('posts').get();
-  
-              const postData = {
-                  content: content,
-                  mediaUrls: mediaUrls,
-                  postNumber: postsSnapshot.size + 1,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                  ipAddress: ipAddress,
-                  status: 'pending',
-                  createdDate: new Date().toISOString(),
-                  replyCount: 0,
-                  isReply: false
-              };
-              // 直接創建新貼文
-              await db.collection('posts').add(postData);
+
+              if (isReplyMode) {
+                  const selectedPostId = postSelector.value;
+                  if (!selectedPostId) {
+                      alert('請選擇要回覆的貼文');
+                      submitButton.disabled = false;
+                      return;
+                  }
+
+                  // 獲取原始貼文數據
+                  const originalPostDoc = await db.collection('posts').doc(selectedPostId).get();
+                  const originalPost = originalPostDoc.data();
+
+                  // 創建回覆記錄
+                  const replyData = {
+                      originalPost: {
+                          id: selectedPostId,
+                          content: originalPost.content,
+                          postNumber: originalPost.postNumber,
+                          createdAt: originalPost.createdAt,
+                          mediaUrls: originalPost.mediaUrls || []
+                      },
+                      replyContent: content,
+                      replyMediaUrls: mediaUrls,
+                      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                      ipAddress: ipAddress,
+                      status: 'pending',
+                      createdDate: new Date().toISOString()
+                  };
+
+                  // 保存到 postsrea 集合
+                  await db.collection('postsrea').add(replyData);
+
+                  // 更新原貼文的回覆數
+                  await db.collection('posts').doc(selectedPostId).update({
+                      replyCount: firebase.firestore.FieldValue.increment(1)
+                  });
+              } else {
+                  // 獲取當前集合大小作為新的 postNumber
+                  const postsSnapshot = await db.collection('posts')
+                      .where('isReply', '==', false)  // 只計算非回覆的貼文
+                      .get();
+
+                  const postData = {
+                      content: content,
+                      mediaUrls: mediaUrls,
+                      postNumber: postsSnapshot.size + 1,
+                      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                      ipAddress: ipAddress,
+                      status: 'pending',
+                      createdDate: new Date().toISOString(),
+                      replyCount: 0,
+                      isReply: false,
+                      approved: false
+                  };
+
+                  // 添加新貼文
+                  await db.collection('posts').add(postData);
+              }
+
               // 重置表單
               postContent.value = '';
               mediaPreview.innerHTML = '';
               charCount.textContent = '已輸入 0 字';
-              
+              if (isReplyMode) {
+                  postSelector.value = '';
+              }
+
+              // 顯示成功訊息
               submitButton.innerHTML = `
                   <span>發布成功</span>
                   <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                   </svg>
               `;
-              
+
               setTimeout(() => {
                   submitButton.innerHTML = `
                       <span>發布貼文</span>
@@ -141,6 +194,7 @@ const firebaseConfig = {
                   `;
                   submitButton.disabled = false;
               }, 2000);
+
           } catch (error) {
               console.error('Error:', error);
               submitButton.innerHTML = `
@@ -159,7 +213,10 @@ const firebaseConfig = {
                   submitButton.disabled = false;
               }, 2000);
           }
-      });
+      }
+
+      // 添加新的表單提交監聽器
+      postForm.addEventListener('submit', handleSubmit);
   
       // 生成星星的函數
       function createStars() {
@@ -190,8 +247,72 @@ const firebaseConfig = {
       window.addEventListener('load', createStars);
   
       async function updatePostCount() {
-          const snapshot = await db.collection('posts').get();
-          postCount.textContent = `目前貼文數量：${snapshot.size}`;
+          if (postCount) {
+              const snapshot = await db.collection('posts').get();
+              postCount.textContent = `目前貼文數量：${snapshot.size}`;
+          }
       }
   
       window.addEventListener('load', updatePostCount);
+  
+      let isReplyMode = false;
+      const togglePostType = document.getElementById('togglePostType');
+      const replySection = document.getElementById('replySection');
+      const currentMode = document.getElementById('currentMode');
+      const postSelector = document.getElementById('postSelector');
+  
+      // 切換發文/回覆模式
+      togglePostType.addEventListener('click', function() {
+          isReplyMode = !isReplyMode;
+          togglePostType.classList.toggle('active');
+          
+          if (isReplyMode) {
+              replySection.classList.remove('hidden');
+              currentMode.textContent = '目前模式：回覆文';
+              loadApprovedPosts();
+          } else {
+              replySection.classList.add('hidden');
+              currentMode.textContent = '目前模式：發新文';
+              postSelector.value = '';
+          }
+      });
+  
+      // 載入已核准的貼文
+      async function loadApprovedPosts() {
+          try {
+              // 簡化查詢條件
+              const snapshot = await db.collection('posts')
+                  .where('approved', '==', true)
+                  .get();
+
+              postSelector.innerHTML = '<option value="">請選擇要回覆的貼文...</option>';
+              
+              // 將貼文轉換為數組並進行過濾和排序
+              const posts = [];
+              snapshot.forEach(doc => {
+                  const post = doc.data();
+                  // 在客戶端過濾非回覆貼文
+                  if (!post.isReply) {
+                      posts.push({
+                          id: doc.id,
+                          ...post
+                      });
+                  }
+              });
+              
+              // 根據 postNumber 排序
+              posts.sort((a, b) => b.postNumber - a.postNumber);
+              
+              // 填充選項
+              posts.forEach(post => {
+                  const option = document.createElement('option');
+                  option.value = post.id;
+                  option.textContent = `#${post.postNumber} - ${post.content.substring(0, 30)}${post.content.length > 30 ? '...' : ''}`;
+                  postSelector.appendChild(option);
+              });
+
+          } catch (error) {
+              console.error('載入貼文錯誤:', error);
+              alert('載入貼文失敗，請稍後再試');
+          }
+      }

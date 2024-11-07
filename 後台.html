@@ -201,24 +201,46 @@ const firebaseConfig = {
             
             pendingContainer.innerHTML = '<div class="loading">載入中...</div>';
             approvedContainer.innerHTML = '<div class="loading">載入中...</div>';
+            
             try {
-                const querySnapshot = await db.collection('posts')
+                // 載入主要貼文
+                const postsSnapshot = await db.collection('posts')
                     .orderBy('createdAt', 'desc')
                     .get();
+                    
+                // 載入回覆貼文
+                const repliesSnapshot = await db.collection('postsrea')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
                 pendingContainer.innerHTML = '';
                 approvedContainer.innerHTML = '';
-                if (querySnapshot.empty) {
+
+                if (postsSnapshot.empty && repliesSnapshot.empty) {
                     pendingContainer.innerHTML = '<div class="no-posts">目前還沒有待審核留言</div>';
                     approvedContainer.innerHTML = '<div class="no-posts">目前還沒有已批准留言</div>';
                 } else {
-                    querySnapshot.forEach(doc => {
+                    // 處理主要貼文
+                    postsSnapshot.forEach(doc => {
                         const postData = doc.data();
-                        const postElement = createPostElement(doc.id, postData);
+                        const postElement = createPostElement(doc.id, postData, false);
                         
                         if (postData.approved) {
                             approvedContainer.appendChild(postElement);
                         } else {
                             pendingContainer.appendChild(postElement);
+                        }
+                    });
+
+                    // 處理回覆貼文
+                    repliesSnapshot.forEach(doc => {
+                        const replyData = doc.data();
+                        const replyElement = createPostElement(doc.id, replyData, true);
+                        
+                        if (replyData.status === 'approved') {
+                            approvedContainer.appendChild(replyElement);
+                        } else {
+                            pendingContainer.appendChild(replyElement);
                         }
                     });
                 }
@@ -228,11 +250,11 @@ const firebaseConfig = {
                 approvedContainer.innerHTML = '<div class="error-message">載入留言失敗，請稍後再試</div>';
             }
         }
-        function createPostElement(docId, postData) {
+        function createPostElement(docId, postData, isReply) {
             const postElement = document.createElement('div');
             postElement.className = 'post-card';
             
-            const timestamp = postData.createdAt.toDate();
+            const timestamp = postData.createdAt?.toDate() || new Date();
             const formattedDate = timestamp.toLocaleString('zh-TW', {
                 year: 'numeric',
                 month: 'long',
@@ -240,18 +262,35 @@ const firebaseConfig = {
                 hour: '2-digit',
                 minute: '2-digit'
             });
-            
-            const actionButtons = postData.approved ? 
-                `<button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>` :
-                `<button class="approve-btn" onclick="approvePost('${docId}')">批准</button>
-                 <button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>`;
+
+            let content, postNumber;
+            if (isReply) {
+                content = postData.replyContent;
+                const originalPost = postData.originalPost;
+                postNumber = `回覆 #${originalPost.postNumber}`;
+            } else {
+                content = postData.content;
+                postNumber = postData.postNumber ? `#${postData.postNumber}` : '未編號';
+            }
+
+            const actionButtons = (isReply ? 
+                (postData.status === 'approved' ? 
+                    `<button class="delete-btn" onclick="deleteReply('${docId}')">刪除</button>` :
+                    `<button class="approve-btn" onclick="approveReply('${docId}')">批准</button>
+                     <button class="delete-btn" onclick="deleteReply('${docId}')">刪除</button>`) :
+                (postData.approved ? 
+                    `<button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>` :
+                    `<button class="approve-btn" onclick="approvePost('${docId}')">批准</button>
+                     <button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>`));
+
             const publishedStatus = postData.published ? '已發布' : '未發布';
+            const contentHtml = `<div class="post-content" ${isReply ? 'data-is-reply="true"' : ''}>${content}</div>`;
             postElement.innerHTML = `
                 <div class="post-header">
-                    <h3>📝 匿名留言</h3>
+                    <h3>📝 ${isReply ? '回覆留言' : '匿名留言'}</h3>
                     <span class="post-time">🕒 ${formattedDate}</span>
                 </div>
-                <div class="post-content">${postData.content}</div>
+                ${contentHtml}
                 ${postData.mediaUrls ? postData.mediaUrls.map(url => {
                     if (url.type === 'image') {
                         return `<img src="${url.url}" alt="留言圖片" class="post-media" loading="lazy">`;
@@ -281,7 +320,7 @@ const firebaseConfig = {
                 loadPosts(); // 重新載入貼文
             } catch (error) {
                 console.error("批准貼文時發生錯誤：", error);
-                alert("批准貼文失敗，請稍後再試");
+                alert("批准貼文失敗，請稍再試");
             }
         }
         // 新增刪除貼文功能
@@ -299,24 +338,26 @@ const firebaseConfig = {
         async function downloadPostAsImage(button, docId) {
             const postCard = button.closest('.post-card');
             
-            // 檢查是否有附加圖片或照片
-            const mediaElements = postCard.querySelectorAll('img, video');
-            if (mediaElements.length > 0) {
-                // 如果有附加媒體，直接下載所有媒體
-                mediaElements.forEach(async (mediaElement, index) => {
-                    const mediaUrl = mediaElement.src;
-                    const response = await fetch(mediaUrl);
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `附加媒體_${index + 1}${getFileExtension(mediaUrl)}`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                });
+            // 檢查是否為回覆貼文
+            const isReply = postCard.querySelector('.post-content').hasAttribute('data-is-reply');
+            
+            // 獲取匿名內容
+            const content = postCard.querySelector('.post-content').textContent;
+            
+            // 如果是回覆，獲取原始貼文編號
+            let postNumber;
+            if (isReply) {
+                const replyDoc = await db.collection('postsrea').doc(docId).get();
+                const replyData = replyDoc.data();
+                postNumber = replyData.postNumber || '未編號';
+            } else {
+                const postDoc = await db.collection('posts').doc(docId).get();
+                const postData = postDoc.data();
+                postNumber = postData.postNumber || '未編號';
             }
+            
+            // 取得目前的編號
+            const currentNumber = await getCurrentPostNumber();
             
             // 生成並下載模板圖片
             const canvas = document.createElement('canvas');
@@ -338,13 +379,7 @@ const firebaseConfig = {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // 獲取匿名內容
-            const content = postCard.querySelector('.post-content').textContent;
-            
-            // 取得目前的編號
-            const currentNumber = await getCurrentPostNumber();
-            
-            // 文字換行處理
+            // 逐字檢查並換行
             const maxWidth = 700;
             const lineHeight = 40;
             let x = canvas.width / 2;
@@ -363,7 +398,12 @@ const firebaseConfig = {
             }
             ctx.font = `bold ${fontSize}px "可畫甜心體", Arial, "Noto Sans TC", sans-serif`;
             
-            // 逐字檢查並換行
+            // 如果是回覆，先加入回覆標題
+            if (isReply) {
+                lines.push(`回覆#${postNumber}`);
+                lines.push(''); // 空行
+            }
+            
             for (let i = 0; i < words.length; i++) {
                 let testLine = currentLine + words[i];
                 let metrics = ctx.measureText(testLine);
@@ -394,23 +434,58 @@ const firebaseConfig = {
                 const currentY = startY + index * lineHeight;
                 ctx.fillText(line, x, currentY);
             });
+
+            // 在右下角添加時間和編號
+            if (!isReply) {
+                const postDoc = await db.collection('posts').doc(docId).get();
+                const postData = postDoc.data();
+                const createdAt = postData.createdAt.toDate();
+                const formattedDate = createdAt.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                
+                ctx.font = 'bold 20px "可畫甜心體", Arial, "Noto Sans TC", sans-serif';
+                ctx.textAlign = 'right';
+                
+                // 使用貼文原本的編號
+                ctx.fillText(`#${postNumber}`, canvas.width - 30, canvas.height - 60);
+                ctx.fillText(formattedDate, canvas.width - 30, canvas.height - 30);
+            }
+            
             // 將 canvas 轉換為圖片並下載
             canvas.toBlob(blob => {
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `匿名留言_${currentNumber}.png`;
+                // 修改檔案名稱格式
+                const truncatedContent = content.length > 5 ? 
+                    content.substring(0, 5) + '...' : 
+                    content;
+                const prefix = isReply ? `回覆#${postNumber}` : '匿名留言';
+                link.download = `${prefix}_${currentNumber}_${truncatedContent}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(url);
             }, 'image/png');
+            
             // 更新資料庫，標記為已發布
             try {
-                await db.collection('posts').doc(docId).update({
-                    published: true,
-                    postNumber: currentNumber
-                });
+                if (isReply) {
+                    await db.collection('postsrea').doc(docId).update({
+                        published: true
+                    });
+                } else {
+                    await db.collection('posts').doc(docId).update({
+                        published: true
+                    });
+                }
                 console.log("已成功標記為已發布");
             } catch (error) {
                 console.error("標記為已發布時發生錯誤：", error);
@@ -422,32 +497,37 @@ const firebaseConfig = {
         }
         async function getCurrentPostNumber() {
             try {
-                const snapshot = await db.collection('posts')
+                // 獲取所有已發布的貼文
+                const postsSnapshot = await db.collection('posts')
                     .where('published', '==', true)
-                    .orderBy('createdAt', 'asc')  // 改用 createdAt 而不是 timestamp
+                    .get();
+                const repliesSnapshot = await db.collection('postsrea')
+                    .where('published', '==', true)
                     .get();
                 
-                if (snapshot.empty) {
-                    return 1;
-                }
-                // 獲取所有已發布的貼文並按時間排序
-                const posts = snapshot.docs.map((doc, index) => {
-                    return {
-                        id: doc.id,
-                        number: index + 1,
-                        ...doc.data()
-                    };
+                let maxNumber = 0;
+                
+                // 檢查主要貼文的編號
+                postsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.postNumber && typeof data.postNumber === 'number') {
+                        maxNumber = Math.max(maxNumber, data.postNumber);
+                    }
                 });
-                // 找出最大的編號
-                const maxNumber = posts.length;
+                
+                // 檢查回覆貼文的編號
+                repliesSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.postNumber && typeof data.postNumber === 'number') {
+                        maxNumber = Math.max(maxNumber, data.postNumber);
+                    }
+                });
+                
+                // 返回下一個編號
                 return maxNumber + 1;
                 
             } catch (error) {
-                if (error.code === 'failed-precondition') {
-                    console.error("查詢需要索引。您可以在此處創建它： https://console.firebase.google.com/v1/r/project/ctjh-84ffc/firestore/indexes?create_composite=Ckhwcm9qZWN0cy9jdGpoLTg0ZmZjL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9wb3N0cy9pbmRleGVzL18QARoNCglwdWJsaXNoZWQQARoNCgljcmVhdGVkQXQQARoMCghfX25hbWVfXxAB");
-                } else {
-                    console.error("獲取貼文編號時發生錯誤：", error);
-                }
+                console.error("獲取貼文編號時發生錯誤：", error);
                 return 1;
             }
         }
@@ -477,6 +557,31 @@ const firebaseConfig = {
             });
         // 頁面載入時顯示留言
         loadPosts();
+
+        // 新增回覆相關的功能
+        async function approveReply(docId) {
+            try {
+                await db.collection('postsrea').doc(docId).update({
+                    status: 'approved'
+                });
+                loadPosts();
+            } catch (error) {
+                console.error("批准回覆時發生錯誤：", error);
+                alert("批准回覆失敗，請稍後再試");
+            }
+        }
+
+        async function deleteReply(docId) {
+            if (confirm('確定要刪除這則回覆嗎？')) {
+                try {
+                    await db.collection('postsrea').doc(docId).delete();
+                    loadPosts();
+                } catch (error) {
+                    console.error("刪除回覆時發生錯誤：", error);
+                    alert("刪除回覆失敗，請稍後再試");
+                }
+            }
+        }
     </script>
 </body>
 </html>
