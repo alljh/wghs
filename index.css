@@ -126,7 +126,32 @@ textarea:focus, input[type="text"]:focus {
 
 @media (max-width: 640px) {
     .card {
-        border-radius: 2.4rem;
+        padding: 1.5rem;
+        margin: 1rem;
+        border-radius: 2rem;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    textarea {
+        font-size: 1rem;
+        padding: 1rem;
+    }
+
+    .submit-button {
+        padding: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .media-upload-area {
+        padding: 1.5rem;
+    }
+
+    #mediaPreview img, #mediaPreview video {
+        height: 150px;
     }
 }
 
