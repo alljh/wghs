@@ -77,8 +77,23 @@ const firebaseConfig = {
       // 移除重複的表單提交監聽器，只保留一個
       const postForm = document.getElementById('postForm');
       if (postForm) {
-          postForm.removeEventListener('submit', handleSubmit);
-          postForm.addEventListener('submit', handleSubmit);
+          // 移除所有現有的提交事件監聽器
+          const newPostForm = postForm.cloneNode(true);
+          postForm.parentNode.replaceChild(newPostForm, postForm);
+          
+          // 添加新的提交事件監聽器
+          newPostForm.addEventListener('submit', async function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              try {
+                  await handleSubmit(e);
+              } catch (error) {
+                  handleSubmitError(error);
+              }
+              
+              return false;
+          });
       }
 
       // 1. 添加本地存儲緩存
@@ -198,7 +213,15 @@ const firebaseConfig = {
 
       // 修改提交函數
       async function handleSubmit(e) {
-          e.preventDefault();
+          if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+          }
+          
+          // 檢查是否已經在提交中
+          if (submitButton.disabled) {
+              return;
+          }
           
           const content = postContent.value;
           
@@ -216,21 +239,32 @@ const firebaseConfig = {
               const newBatch = db.batch();
               
               // 獲取 IP 地址
-              const ipResponse = await fetch('https://api.ipify.org?format=json');
-              const ipData = await ipResponse.json();
-              const ipAddress = ipData.ip;
+              let ipAddress = '';
+              try {
+                  const ipResponse = await fetch('https://api.ipify.org?format=json');
+                  const ipData = await ipResponse.json();
+                  ipAddress = ipData.ip;
+              } catch (error) {
+                  console.error('獲取 IP 地址失敗:', error);
+                  ipAddress = 'unknown';
+              }
               
               // 處理媒體文件上傳
               const mediaUrls = [];
               if (postMedia.files.length > 0) {
                   const file = postMedia.files[0];
-                  const storageRef = storage.ref('media/' + Date.now() + '_' + file.name);
-                  await storageRef.put(file);
-                  const url = await storageRef.getDownloadURL();
-                  mediaUrls.push({
-                      url: url,
-                      type: 'image'
-                  });
+                  try {
+                      const storageRef = storage.ref('media/' + Date.now() + '_' + file.name);
+                      await storageRef.put(file);
+                      const url = await storageRef.getDownloadURL();
+                      mediaUrls.push({
+                          url: url,
+                          type: 'image'
+                      });
+                  } catch (error) {
+                      console.error('上傳媒體文件失敗:', error);
+                      throw new Error('上傳媒體文件失敗');
+                  }
               }
 
               if (isReplyMode) {
@@ -272,7 +306,7 @@ const firebaseConfig = {
               } else {
                   // 發新文模式的處理
                   const maxPostNumber = cache.approvedPosts.length > 0 
-                      ? Math.max(...cache.approvedPosts.map(p => p.postNumber))
+                      ? Math.max(...cache.approvedPosts.map(p => p.postNumber || 0))
                       : 0;
 
                   const postRef = db.collection('posts').doc();
@@ -297,7 +331,9 @@ const firebaseConfig = {
               resetForm();
               
           } catch (error) {
+              console.error('提交失敗:', error);
               handleSubmitError(error);
+              throw error;
           }
       }
 
@@ -381,7 +417,7 @@ const firebaseConfig = {
       // 添加錯誤處理函數
       function handleSubmitError(error) {
           console.error('提交錯誤:', error);
-          alert('提交失敗，請稍後重試');
+          alert('提交失敗，請稍後重試\n' + (error.message || '未知錯誤'));
           submitButton.disabled = false;
           submitButton.innerHTML = `
               <span>發布貼文</span>
