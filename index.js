@@ -193,7 +193,10 @@ const firebaseConfig = {
           });
       }
 
-      // 4. 優化提交函數
+      // 在文件頂部添加 batch 初始化
+      const batch = db.batch();
+
+      // 修改提交函數
       async function handleSubmit(e) {
           e.preventDefault();
           
@@ -204,9 +207,13 @@ const firebaseConfig = {
               return;
           }
           
+          // 禁用提交按鈕
+          submitButton.disabled = true;
+          submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
+          
           try {
-              submitButton.disabled = true;
-              submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
+              // 創建新的批次
+              const newBatch = db.batch();
               
               // 獲取 IP 地址
               const ipResponse = await fetch('https://api.ipify.org?format=json');
@@ -227,6 +234,7 @@ const firebaseConfig = {
               }
 
               if (isReplyMode) {
+                  // 回覆模式的處理
                   const selectedPostId = postSelector.value;
                   if (!selectedPostId) {
                       alert('請選擇要回覆的貼文');
@@ -234,15 +242,13 @@ const firebaseConfig = {
                       return;
                   }
 
-                  // 使用緩存中的貼文數據
                   const originalPost = cache.approvedPosts.find(post => post.id === selectedPostId);
                   if (!originalPost) {
                       throw new Error('找不到原始貼文');
                   }
 
-                  // 創建回覆文檔
                   const replyRef = db.collection('postsrea').doc();
-                  batch.set(replyRef, {
+                  newBatch.set(replyRef, {
                       originalPost: {
                           id: selectedPostId,
                           content: originalPost.content,
@@ -258,20 +264,19 @@ const firebaseConfig = {
                       createdDate: new Date().toISOString()
                   });
 
-                  // 更新原貼文的回覆數
                   const originalPostRef = db.collection('posts').doc(selectedPostId);
-                  batch.update(originalPostRef, {
+                  newBatch.update(originalPostRef, {
                       replyCount: firebase.firestore.FieldValue.increment(1)
                   });
 
               } else {
-                  // 使用緩存中的最大貼文編號
+                  // 發新文模式的處理
                   const maxPostNumber = cache.approvedPosts.length > 0 
                       ? Math.max(...cache.approvedPosts.map(p => p.postNumber))
                       : 0;
 
                   const postRef = db.collection('posts').doc();
-                  batch.set(postRef, {
+                  newBatch.set(postRef, {
                       content: content,
                       mediaUrls: mediaUrls,
                       postNumber: maxPostNumber + 1,
@@ -286,11 +291,11 @@ const firebaseConfig = {
               }
 
               // 執行批次寫入
-              await batch.commit();
-
-              // 5. 分離表單重置邏輯
+              await newBatch.commit();
+              
+              // 重置表單
               resetForm();
-
+              
           } catch (error) {
               handleSubmitError(error);
           }
