@@ -78,6 +78,64 @@ const firebaseConfig = {
       const postForm = document.getElementById('postForm');
       postForm.removeEventListener('submit', handleSubmit); // 移除可能存在的舊監聽器
 
+      // 1. 添加緩存機制
+      const cache = {
+          approvedPosts: [],
+          lastFetch: null,
+          CACHE_DURATION: 5 * 60 * 1000  // 5分鐘的緩存時間
+      };
+
+      // 2. 優化載入已核准的貼文函數
+      async function loadApprovedPosts() {
+          try {
+              // 檢查緩存是否有效
+              if (cache.approvedPosts.length > 0 && 
+                  cache.lastFetch && 
+                  (Date.now() - cache.lastFetch < cache.CACHE_DURATION)) {
+                  updatePostSelector(cache.approvedPosts);
+                  return;
+              }
+
+              // 使用複合索引並限制查詢數量
+              const snapshot = await db.collection('posts')
+                  .where('approved', '==', true)
+                  .where('isReply', '==', false)  // 直接在查詢中過濾
+                  .orderBy('postNumber', 'desc')   // 直接在查詢中排序
+                  .limit(50)  // 限制查詢數量
+                  .get();
+
+              const posts = [];
+              snapshot.forEach(doc => {
+                  posts.push({
+                      id: doc.id,
+                      ...doc.data()
+                  });
+              });
+
+              // 更新緩存
+              cache.approvedPosts = posts;
+              cache.lastFetch = Date.now();
+
+              updatePostSelector(posts);
+
+          } catch (error) {
+              console.error('載入貼文錯誤:', error);
+              alert('載入貼文失敗，請稍後再試');
+          }
+      }
+
+      // 3. 分離 UI 更新邏輯
+      function updatePostSelector(posts) {
+          postSelector.innerHTML = '<option value="">請選擇要回覆的貼文...</option>';
+          posts.forEach(post => {
+              const option = document.createElement('option');
+              option.value = post.id;
+              option.textContent = `#${post.postNumber} - ${post.content.substring(0, 30)}${post.content.length > 30 ? '...' : ''}`;
+              postSelector.appendChild(option);
+          });
+      }
+
+      // 4. 優化提交函數
       async function handleSubmit(e) {
           e.preventDefault();
           
@@ -88,11 +146,14 @@ const firebaseConfig = {
               return;
           }
           
-          // 禁用提交按鈕，防止重複提交
           submitButton.disabled = true;
           submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
           
           try {
+              // 使用批次寫入
+              const batch = db.batch();
+              
+              // 獲取 IP 地址
               const ipResponse = await fetch('https://api.ipify.org?format=json');
               const ipData = await ipResponse.json();
               const ipAddress = ipData.ip;
@@ -118,12 +179,15 @@ const firebaseConfig = {
                       return;
                   }
 
-                  // 獲取原始貼文數據
-                  const originalPostDoc = await db.collection('posts').doc(selectedPostId).get();
-                  const originalPost = originalPostDoc.data();
+                  // 使用緩存中的貼文數據
+                  const originalPost = cache.approvedPosts.find(post => post.id === selectedPostId);
+                  if (!originalPost) {
+                      throw new Error('找不到原始貼文');
+                  }
 
-                  // 創建回覆記錄
-                  const replyData = {
+                  // 創建回覆文檔
+                  const replyRef = db.collection('postsrea').doc();
+                  batch.set(replyRef, {
                       originalPost: {
                           id: selectedPostId,
                           content: originalPost.content,
@@ -137,25 +201,25 @@ const firebaseConfig = {
                       ipAddress: ipAddress,
                       status: 'pending',
                       createdDate: new Date().toISOString()
-                  };
-
-                  // 保存到 postsrea 集合
-                  await db.collection('postsrea').add(replyData);
+                  });
 
                   // 更新原貼文的回覆數
-                  await db.collection('posts').doc(selectedPostId).update({
+                  const originalPostRef = db.collection('posts').doc(selectedPostId);
+                  batch.update(originalPostRef, {
                       replyCount: firebase.firestore.FieldValue.increment(1)
                   });
-              } else {
-                  // 獲取當前集合大小作為新的 postNumber
-                  const postsSnapshot = await db.collection('posts')
-                      .where('isReply', '==', false)  // 只計算非回覆的貼文
-                      .get();
 
-                  const postData = {
+              } else {
+                  // 使用緩存中的最大貼文編號
+                  const maxPostNumber = cache.approvedPosts.length > 0 
+                      ? Math.max(...cache.approvedPosts.map(p => p.postNumber))
+                      : 0;
+
+                  const postRef = db.collection('posts').doc();
+                  batch.set(postRef, {
                       content: content,
                       mediaUrls: mediaUrls,
-                      postNumber: postsSnapshot.size + 1,
+                      postNumber: maxPostNumber + 1,
                       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                       ipAddress: ipAddress,
                       status: 'pending',
@@ -163,61 +227,47 @@ const firebaseConfig = {
                       replyCount: 0,
                       isReply: false,
                       approved: false
-                  };
-
-                  // 添加新貼文
-                  await db.collection('posts').add(postData);
+                  });
               }
 
-              // 重置表單
-              postContent.value = '';
-              mediaPreview.innerHTML = '';
-              charCount.textContent = '已輸入 0 字';
-              if (isReplyMode) {
-                  postSelector.value = '';
-              }
+              // 執行批次寫入
+              await batch.commit();
 
-              // 顯示成功訊息
-              submitButton.innerHTML = `
-                  <span>發布成功</span>
-                  <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                  </svg>
-              `;
-
-              setTimeout(() => {
-                  submitButton.innerHTML = `
-                      <span>發布貼文</span>
-                      <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                      </svg>
-                  `;
-                  submitButton.disabled = false;
-              }, 2000);
+              // 5. 分離表單重置邏輯
+              resetForm();
 
           } catch (error) {
-              console.error('Error:', error);
-              submitButton.innerHTML = `
-                  <span>發布失敗</span>
-                  <svg class="h-8 w-8 ml-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-              `;
-              setTimeout(() => {
-                  submitButton.innerHTML = `
-                      <span>發布貼文</span>
-                      <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                      </svg>
-                  `;
-                  submitButton.disabled = false;
-              }, 2000);
+              handleSubmitError(error);
           }
       }
 
-      // 添加新的表單提交監聽器
-      postForm.addEventListener('submit', handleSubmit);
-  
+      // 5. 分離表單重置邏輯
+      function resetForm() {
+          postContent.value = '';
+          mediaPreview.innerHTML = '';
+          charCount.textContent = '已輸入 0 字';
+          if (isReplyMode) {
+              postSelector.value = '';
+          }
+
+          submitButton.innerHTML = `
+              <span>發布成功</span>
+              <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+          `;
+
+          setTimeout(() => {
+              submitButton.innerHTML = `
+                  <span>發布貼文</span>
+                  <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                  </svg>
+              `;
+              submitButton.disabled = false;
+          }, 2000);
+      }
+
       // 生成星星的函數
       function createStars() {
           const container = document.getElementById('starsContainer');
@@ -276,43 +326,3 @@ const firebaseConfig = {
               postSelector.value = '';
           }
       });
-  
-      // 載入已核准的貼文
-      async function loadApprovedPosts() {
-          try {
-              // 簡化查詢條件
-              const snapshot = await db.collection('posts')
-                  .where('approved', '==', true)
-                  .get();
-
-              postSelector.innerHTML = '<option value="">請選擇要回覆的貼文...</option>';
-              
-              // 將貼文轉換為數組並進行過濾和排序
-              const posts = [];
-              snapshot.forEach(doc => {
-                  const post = doc.data();
-                  // 在客戶端過濾非回覆貼文
-                  if (!post.isReply) {
-                      posts.push({
-                          id: doc.id,
-                          ...post
-                      });
-                  }
-              });
-              
-              // 根據 postNumber 排序
-              posts.sort((a, b) => b.postNumber - a.postNumber);
-              
-              // 填充選項
-              posts.forEach(post => {
-                  const option = document.createElement('option');
-                  option.value = post.id;
-                  option.textContent = `#${post.postNumber} - ${post.content.substring(0, 30)}${post.content.length > 30 ? '...' : ''}`;
-                  postSelector.appendChild(option);
-              });
-
-          } catch (error) {
-              console.error('載入貼文錯誤:', error);
-              alert('載入貼文失敗，請稍後再試');
-          }
-      }
