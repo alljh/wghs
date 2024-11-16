@@ -76,19 +76,39 @@ const firebaseConfig = {
   
       // 移除重複的表單提交監聽器，只保留一個
       const postForm = document.getElementById('postForm');
-      postForm.removeEventListener('submit', handleSubmit); // 移除可能存在的舊監聽器
+      if (postForm) {
+          postForm.removeEventListener('submit', handleSubmit);
+          postForm.addEventListener('submit', handleSubmit);
+      }
 
-      // 1. 添加緩存機制
+      // 1. 添加本地存儲緩存
+      const CACHE_KEY = 'postsCache';
       const cache = {
           approvedPosts: [],
           lastFetch: null,
-          CACHE_DURATION: 5 * 60 * 1000  // 5分鐘的緩存時間
+          CACHE_DURATION: 5 * 60 * 1000,  // 5分鐘的緩存時間
+          totalPosts: 0,
+          lastPostCountUpdate: null
       };
 
-      // 2. 優化載入已核准的貼文函數
+      // 2. 從本地存儲加載緩存
+      function loadCacheFromStorage() {
+          const savedCache = localStorage.getItem(CACHE_KEY);
+          if (savedCache) {
+              const parsedCache = JSON.parse(savedCache);
+              Object.assign(cache, parsedCache);
+          }
+      }
+
+      // 3. 保存緩存到本地存儲
+      function saveCacheToStorage() {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      }
+
+      // 4. 優化載入已核准的貼文函數
       async function loadApprovedPosts() {
           try {
-              // 檢查緩存是否有效
+              // 檢查內存緩存
               if (cache.approvedPosts.length > 0 && 
                   cache.lastFetch && 
                   (Date.now() - cache.lastFetch < cache.CACHE_DURATION)) {
@@ -96,12 +116,12 @@ const firebaseConfig = {
                   return;
               }
 
-              // 使用複合索引並限制查詢數量
+              // 使用複合查詢並限制數量
               const snapshot = await db.collection('posts')
                   .where('approved', '==', true)
-                  .where('isReply', '==', false)  // 直接在查詢中過濾
-                  .orderBy('postNumber', 'desc')   // 直接在查詢中排序
-                  .limit(50)  // 限制查詢數量
+                  .where('isReply', '==', false)
+                  .orderBy('postNumber', 'desc')
+                  .limit(50)
                   .get();
 
               const posts = [];
@@ -115,6 +135,7 @@ const firebaseConfig = {
               // 更新緩存
               cache.approvedPosts = posts;
               cache.lastFetch = Date.now();
+              saveCacheToStorage();
 
               updatePostSelector(posts);
 
@@ -123,6 +144,43 @@ const firebaseConfig = {
               alert('載入貼文失敗，請稍後再試');
           }
       }
+
+      // 5. 優化貼文計數功能
+      async function updatePostCount() {
+          if (!postCount) return;
+
+          // 檢查緩存
+          if (cache.totalPosts && 
+              cache.lastPostCountUpdate && 
+              (Date.now() - cache.lastPostCountUpdate < cache.CACHE_DURATION)) {
+              postCount.textContent = `目前貼文數量：${cache.totalPosts}`;
+              return;
+          }
+
+          try {
+              // 使用聚合查詢來獲取計數
+              const snapshot = await db.collection('posts')
+                  .where('approved', '==', true)
+                  .count()
+                  .get();
+              
+              const count = snapshot.data().count;
+              cache.totalPosts = count;
+              cache.lastPostCountUpdate = Date.now();
+              saveCacheToStorage();
+
+              postCount.textContent = `目前貼文數量：${count}`;
+          } catch (error) {
+              console.error('更新貼文計數錯誤:', error);
+          }
+      }
+
+      // 6. 初始化時加載緩存
+      window.addEventListener('load', () => {
+          loadCacheFromStorage();
+          createStars();
+          updatePostCount();
+      });
 
       // 3. 分離 UI 更新邏輯
       function updatePostSelector(posts) {
@@ -146,12 +204,9 @@ const firebaseConfig = {
               return;
           }
           
-          submitButton.disabled = true;
-          submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
-          
           try {
-              // 使用批次寫入
-              const batch = db.batch();
+              submitButton.disabled = true;
+              submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
               
               // 獲取 IP 地址
               const ipResponse = await fetch('https://api.ipify.org?format=json');
@@ -296,15 +351,6 @@ const firebaseConfig = {
   
       window.addEventListener('load', createStars);
   
-      async function updatePostCount() {
-          if (postCount) {
-              const snapshot = await db.collection('posts').get();
-              postCount.textContent = `目前貼文數量：${snapshot.size}`;
-          }
-      }
-  
-      window.addEventListener('load', updatePostCount);
-  
       let isReplyMode = false;
       const togglePostType = document.getElementById('togglePostType');
       const replySection = document.getElementById('replySection');
@@ -326,3 +372,16 @@ const firebaseConfig = {
               postSelector.value = '';
           }
       });
+
+      // 添加錯誤處理函數
+      function handleSubmitError(error) {
+          console.error('提交錯誤:', error);
+          alert('提交失敗，請稍後重試');
+          submitButton.disabled = false;
+          submitButton.innerHTML = `
+              <span>發布貼文</span>
+              <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+          `;
+      }
