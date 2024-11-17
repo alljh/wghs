@@ -2,7 +2,7 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
     apiKey: "AIzaSyAJHCvgzkZQlNGYQDTrEhdeO3jn461w62M",
-    authDomain: "tmjh-9aeca.firebaseapp.com", 
+    authDomain: "tmjh-9aeca.firebaseapp.com",
     databaseURL: "https://tmjh-9aeca-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "tmjh-9aeca",
     storageBucket: "tmjh-9aeca.appspot.com",
@@ -23,12 +23,7 @@ const firebaseConfig = {
       const postCount = document.getElementById('postCount');
   
       function updateCharCount() {
-          // 移除多餘的空白字符和換行符，但保留單個空格
-          const cleanContent = postContent.value
-              .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
-              .trim();               // 移除首尾空白
-          
-          const currentLength = cleanContent.length;
+          const currentLength = postContent.value.length;
           charCount.textContent = `已輸入 ${currentLength} 字`;
           
           if (currentLength < 3) {
@@ -38,10 +33,7 @@ const firebaseConfig = {
           }
       }
   
-      // 添加額外的事件監聽以處理各種輸入情況
       postContent.addEventListener('input', updateCharCount);
-      postContent.addEventListener('change', updateCharCount);
-      postContent.addEventListener('compositionend', updateCharCount); // 處理輸入法完成輸入的情況
   
       postMedia.addEventListener('change', function(e) {
           handleMediaFiles(e.target.files);
@@ -85,23 +77,8 @@ const firebaseConfig = {
       // 移除重複的表單提交監聽器，只保留一個
       const postForm = document.getElementById('postForm');
       if (postForm) {
-          // 移除所有現有的提交事件監聽器
-          const newPostForm = postForm.cloneNode(true);
-          postForm.parentNode.replaceChild(newPostForm, postForm);
-          
-          // 添加新的提交事件監聽器
-          newPostForm.addEventListener('submit', async function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              
-              try {
-                  await handleSubmit(e);
-              } catch (error) {
-                  handleSubmitError(error);
-              }
-              
-              return false;
-          });
+          postForm.removeEventListener('submit', handleSubmit);
+          postForm.addEventListener('submit', handleSubmit);
       }
 
       // 1. 添加本地存儲緩存
@@ -221,15 +198,7 @@ const firebaseConfig = {
 
       // 修改提交函數
       async function handleSubmit(e) {
-          if (e) {
-              e.preventDefault();
-              e.stopPropagation();
-          }
-          
-          // 檢查是否已經在提交中
-          if (submitButton.disabled) {
-              return;
-          }
+          e.preventDefault();
           
           const content = postContent.value;
           
@@ -247,32 +216,21 @@ const firebaseConfig = {
               const newBatch = db.batch();
               
               // 獲取 IP 地址
-              let ipAddress = '';
-              try {
-                  const ipResponse = await fetch('https://api.ipify.org?format=json');
-                  const ipData = await ipResponse.json();
-                  ipAddress = ipData.ip;
-              } catch (error) {
-                  console.error('獲取 IP 地址失敗:', error);
-                  ipAddress = 'unknown';
-              }
+              const ipResponse = await fetch('https://api.ipify.org?format=json');
+              const ipData = await ipResponse.json();
+              const ipAddress = ipData.ip;
               
               // 處理媒體文件上傳
               const mediaUrls = [];
               if (postMedia.files.length > 0) {
                   const file = postMedia.files[0];
-                  try {
-                      const storageRef = storage.ref('media/' + Date.now() + '_' + file.name);
-                      await storageRef.put(file);
-                      const url = await storageRef.getDownloadURL();
-                      mediaUrls.push({
-                          url: url,
-                          type: 'image'
-                      });
-                  } catch (error) {
-                      console.error('上傳媒體文件失敗:', error);
-                      throw new Error('上傳媒體文件失敗');
-                  }
+                  const storageRef = storage.ref('media/' + Date.now() + '_' + file.name);
+                  await storageRef.put(file);
+                  const url = await storageRef.getDownloadURL();
+                  mediaUrls.push({
+                      url: url,
+                      type: 'image'
+                  });
               }
 
               if (isReplyMode) {
@@ -314,7 +272,7 @@ const firebaseConfig = {
               } else {
                   // 發新文模式的處理
                   const maxPostNumber = cache.approvedPosts.length > 0 
-                      ? Math.max(...cache.approvedPosts.map(p => p.postNumber || 0))
+                      ? Math.max(...cache.approvedPosts.map(p => p.postNumber))
                       : 0;
 
                   const postRef = db.collection('posts').doc();
@@ -339,9 +297,7 @@ const firebaseConfig = {
               resetForm();
               
           } catch (error) {
-              console.error('提交失敗:', error);
               handleSubmitError(error);
-              throw error;
           }
       }
 
@@ -425,7 +381,7 @@ const firebaseConfig = {
       // 添加錯誤處理函數
       function handleSubmitError(error) {
           console.error('提交錯誤:', error);
-          alert('提交失敗，請稍後重試\n' + (error.message || '未知錯誤'));
+          alert('提交失敗，請稍後重試');
           submitButton.disabled = false;
           submitButton.innerHTML = `
               <span>發布貼文</span>
