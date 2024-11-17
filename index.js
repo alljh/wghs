@@ -2,7 +2,7 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
     apiKey: "AIzaSyAJHCvgzkZQlNGYQDTrEhdeO3jn461w62M",
-    authDomain: "tmjh-9aeca.firebaseapp.com",
+    authDomain: "tmjh-9aeca.firebaseapp.com", 
     databaseURL: "https://tmjh-9aeca-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "tmjh-9aeca",
     storageBucket: "tmjh-9aeca.appspot.com",
@@ -23,7 +23,12 @@ const firebaseConfig = {
       const postCount = document.getElementById('postCount');
   
       function updateCharCount() {
-          const currentLength = postContent.value.length;
+          // 移除多餘的空白字符和換行符，但保留單個空格
+          const cleanContent = postContent.value
+              .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
+              .trim();               // 移除首尾空白
+          
+          const currentLength = cleanContent.length;
           charCount.textContent = `已輸入 ${currentLength} 字`;
           
           if (currentLength < 3) {
@@ -33,7 +38,10 @@ const firebaseConfig = {
           }
       }
   
+      // 添加額外的事件監聽以處理各種輸入情況
       postContent.addEventListener('input', updateCharCount);
+      postContent.addEventListener('change', updateCharCount);
+      postContent.addEventListener('compositionend', updateCharCount); // 處理輸入法完成輸入的情況
   
       postMedia.addEventListener('change', function(e) {
           handleMediaFiles(e.target.files);
