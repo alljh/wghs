@@ -279,16 +279,23 @@ async function handleSubmit(e) {
             });
 
         } else {
-            // 發新文模式的處理
-            const maxPostNumber = cache.approvedPosts.length > 0 
-                ? Math.max(...cache.approvedPosts.map(p => p.postNumber))
-                : 0;
+            // 修改發新文模式的處理，獲取最新的貼文編號
+            const postNumberQuery = await db.collection('posts')
+                .where('approved', '==', true)
+                .orderBy('postNumber', 'desc')
+                .limit(1)
+                .get();
+
+            let nextPostNumber = 1;
+            if (!postNumberQuery.empty) {
+                nextPostNumber = postNumberQuery.docs[0].data().postNumber + 1;
+            }
 
             const postRef = db.collection('posts').doc();
             newBatch.set(postRef, {
                 content: content,
                 mediaUrls: mediaUrls,
-                postNumber: maxPostNumber + 1,
+                postNumber: nextPostNumber,  // 使用新獲取的編號
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ipAddress: ipAddress,
                 status: 'pending',
