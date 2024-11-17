@@ -22,10 +22,17 @@ const firebaseConfig = {
       const mediaPreview = document.getElementById('mediaPreview');
       const postCount = document.getElementById('postCount');
   
+      let isComposing = false;
+  
       function updateCharCount() {
-          const currentLength = postContent.value.length;
+          // 獲取實際內容
+          const content = postContent.value;
+          const currentLength = content.length;
+          
+          // 更新顯示
           charCount.textContent = `已輸入 ${currentLength} 字`;
           
+          // 更新字數警告狀態
           if (currentLength < 3) {
               charCount.classList.add('text-red-400');
           } else {
@@ -33,7 +40,22 @@ const firebaseConfig = {
           }
       }
   
-      postContent.addEventListener('input', updateCharCount);
+      // 處理輸入法事件
+      postContent.addEventListener('compositionstart', () => {
+          isComposing = true;
+      });
+  
+      postContent.addEventListener('compositionend', () => {
+          isComposing = false;
+          updateCharCount();
+      });
+  
+      // 處理一般輸入
+      postContent.addEventListener('input', (e) => {
+          if (!isComposing) {
+              updateCharCount();
+          }
+      });
   
       postMedia.addEventListener('change', function(e) {
           handleMediaFiles(e.target.files);
@@ -202,7 +224,8 @@ const firebaseConfig = {
           
           const content = postContent.value;
           
-          if (content.trim().length < 3) {
+          // 修改驗證邏輯
+          if (!content || content.trim().length < 3) {
               alert('請輸入至少3個字');
               return;
           }
