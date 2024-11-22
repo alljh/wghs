@@ -204,13 +204,42 @@ function updatePostSelector(posts) {
 // 在文件頂部添加 batch 初始化
 const batch = db.batch();
 
+// 添加標籤相關變量
+let selectedTag = '';
+const tagButtons = document.querySelectorAll('.tag-button');
+
+// 添加標籤選擇邏輯
+tagButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+        e.preventDefault(); // 防止表單提交
+        
+        // 移除其他按鈕的選中狀態
+        tagButtons.forEach(btn => {
+            btn.classList.remove('bg-violet-500', 'text-white');
+            btn.classList.add('text-violet-600');
+        });
+        
+        // 設置當前按鈕的選中狀態
+        button.classList.remove('text-violet-600');
+        button.classList.add('bg-violet-500', 'text-white');
+        selectedTag = button.dataset.tag;
+        
+        console.log('選擇的標籤:', selectedTag); // 用於調試
+    });
+});
+
 // 修改提交函數
 async function handleSubmit(e) {
     e.preventDefault();
     
     const content = postContent.value.trim();
     
-    // 修改驗證邏輯
+    // 添加標籤驗證
+    if (!selectedTag) {
+        alert('請選擇一個標籤');
+        return;
+    }
+    
     if (content.length < 3) {
         alert('請輸入至少3個字');
         return;
@@ -270,7 +299,8 @@ async function handleSubmit(e) {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ipAddress: ipAddress,
                 status: 'pending',
-                createdDate: new Date().toISOString()
+                createdDate: new Date().toISOString(),
+                tag: selectedTag
             });
 
             const originalPostRef = db.collection('posts').doc(selectedPostId);
@@ -302,7 +332,8 @@ async function handleSubmit(e) {
                 createdDate: new Date().toISOString(),
                 replyCount: 0,
                 isReply: false,
-                approved: false
+                approved: false,
+                tag: selectedTag
             });
         }
 
@@ -342,8 +373,14 @@ function resetForm() {
         `;
         submitButton.disabled = false;
     }, 2000);
-}
 
+    // 重置標籤選擇
+    selectedTag = '';
+    tagButtons.forEach(btn => {
+        btn.classList.remove('bg-violet-500', 'text-white');
+        btn.classList.add('text-violet-600');
+    });
+}
 // 生成星星的函數
 function createStars() {
     const container = document.getElementById('starsContainer');

@@ -1,25 +1,24 @@
 :root {
-    --primary-color: #BC7BD2; /* 主要紫色 */
-    --secondary-color: #00C2D8; /* 藍色 */
-    --accent-color: #9B4FA6; /* 深紫色 */
-    --background-color: #FFFFFF; /* 白色背景 */
-    --text-color: #333333;
-    --button-gradient: linear-gradient(135deg, #BC7BD2, #00C2D8);
-    --card-background: rgba(255, 255, 255, 0.98);
+    --primary-color: #8B5CF6; /* 改用更現代的紫色 */
+    --secondary-color: #EC4899; /* 加入粉色元素 */
+    --accent-color: #6D28D9; /* 深紫色 */
+    --background-color: #F5F3FF; /* 淡紫色背景 */
+    --text-color: #1F2937;
+    --button-gradient: linear-gradient(135deg, #8B5CF6, #EC4899);
+    --card-background: rgba(255, 255, 255, 0.92);
     --input-background: rgba(255, 255, 255, 0.95);
-    --input-border: #BC7BD2;
-    --input-focus: #00C2D8;
+    --input-border: rgba(139, 92, 246, 0.3);
+    --input-focus: #8B5CF6;
     --success-color: #10B981;
     --error-color: #EF4444;
-    --shadow-color: rgba(188, 123, 210, 0.25);
-    --hover-shadow: rgba(188, 123, 210, 0.4);
+    --shadow-color: rgba(139, 92, 246, 0.2);
+    --hover-shadow: rgba(139, 92, 246, 0.35);
 
-    /* 深色模式變量 */
-    --dark-background: #1a1a1a;
-    --dark-card-background: rgba(30, 30, 30, 0.98);
-    --dark-text-color: #ffffff;
-    --dark-input-background: rgba(40, 40, 40, 0.95);
-    --dark-shadow-color: rgba(0, 0, 0, 0.4);
+    /* 更新深色模式顏色 */
+    --dark-background: #0F172A;
+    --dark-card-background: rgba(30, 41, 59, 0.98);
+    --dark-text-color: #F1F5F9;
+    --dark-input-background: rgba(51, 65, 85, 0.95);
 }
 
 body {
@@ -48,21 +47,21 @@ body {
 }
 
 .card {
-    background-color: var(--card-background);
-    border-radius: 3rem;
+    background: var(--card-background);
+    border-radius: 2.5rem;
     box-shadow: 
-        0 10px 40px -10px var(--shadow-color),
-        0 0 20px -5px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(188, 123, 210, 0.2);
-    backdrop-filter: blur(10px);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        0 25px 60px -15px var(--shadow-color),
+        0 0 30px -5px rgba(139, 92, 246, 0.1);
+    border: 2px solid rgba(139, 92, 246, 0.2);
+    backdrop-filter: blur(20px);
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-16px);
     box-shadow: 
-        0 20px 50px -15px var(--hover-shadow),
-        0 0 30px -5px rgba(0, 0, 0, 0.15);
+        0 35px 70px -15px var(--hover-shadow),
+        0 0 40px -5px rgba(139, 92, 246, 0.15);
 }
 
 .toggle-button {
@@ -78,46 +77,42 @@ body {
 }
 
 textarea, input[type="text"] {
-    background-color: var(--input-background);
+    background: var(--input-background);
     border: 2px solid var(--input-border);
-    border-radius: 1.6rem;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 1.8rem;
+    padding: 1.5rem 2rem;
     font-size: 1.2rem;
-    backdrop-filter: blur(20px);
     box-shadow: 
-        inset 0 2px 4px rgba(0, 0, 0, 0.08),
-        0 4px 15px -3px var(--shadow-color);
-    padding: 1.2rem 1.5rem;
+        inset 0 2px 6px rgba(139, 92, 246, 0.1),
+        0 8px 20px -4px var(--shadow-color);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 textarea:focus, input[type="text"]:focus {
     border-color: var(--input-focus);
     box-shadow: 
-        0 0 0 4px rgba(167, 139, 250, 0.25),
-        0 8px 20px -4px var(--shadow-color);
-    outline: none;
-    transform: translateY(-4px);
+        0 0 0 4px rgba(139, 92, 246, 0.25),
+        0 12px 25px -5px var(--shadow-color);
+    transform: translateY(-6px);
 }
 
 .submit-button {
     background: var(--button-gradient);
-    color: white;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 2.4rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    padding: 1.5rem 3rem;
+    border-radius: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
     box-shadow: 
-        0 8px 20px -4px var(--shadow-color),
-        0 0 0 2px rgba(188, 123, 210, 0.1);
-    backdrop-filter: blur(10px);
+        0 15px 30px -8px var(--shadow-color),
+        0 0 0 2px rgba(139, 92, 246, 0.1);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .submit-button:hover {
-    transform: translateY(-3px);
+    transform: translateY(-8px) scale(1.02);
     box-shadow: 
-        0 12px 25px -5px var(--hover-shadow),
-        0 0 0 3px rgba(188, 123, 210, 0.2);
+        0 20px 40px -10px var(--hover-shadow),
+        0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
 .submit-button:active {
@@ -157,23 +152,23 @@ textarea:focus, input[type="text"]:focus {
 
 #mediaPreview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.6rem;
-    padding: 1.6rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    padding: 2rem;
 }
 
 #mediaPreview img, #mediaPreview video {
     width: 100%;
-    height: 180px;
+    height: 200px;
     object-fit: cover;
-    border-radius: 1.6rem;
-    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 1.8rem;
+    box-shadow: 0 20px 30px rgba(139, 92, 246, 0.2);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #mediaPreview img:hover, #mediaPreview video:hover {
-    transform: scale(1.05) translateY(-5px);
-    box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+    transform: scale(1.08) translateY(-10px);
+    box-shadow: 0 25px 40px rgba(139, 92, 246, 0.3);
 }
 
 .media-upload-area {
@@ -240,13 +235,16 @@ textarea:focus, input[type="text"]:focus {
 
 /* 深色模式樣式 */
 body.dark-mode {
-    background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
     color: var(--dark-text-color);
 }
 
 .dark-mode .card {
-    background-color: var(--dark-card-background);
-    border-color: rgba(188, 123, 210, 0.1);
+    background: var(--dark-card-background);
+    border-color: rgba(139, 92, 246, 0.15);
+    box-shadow: 
+        0 25px 60px -15px rgba(0, 0, 0, 0.5),
+        0 0 30px -5px rgba(139, 92, 246, 0.2);
 }
 
 .dark-mode textarea,
@@ -284,4 +282,32 @@ body.dark-mode {
     background-color: var(--dark-input-background);
     color: var(--dark-text-color);
     border-color: var(--input-border);
+}
+
+.tag-button {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 2px solid rgba(139, 92, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+.tag-button:hover {
+    border-color: rgb(139, 92, 246);
+    background-color: rgb(245, 243, 255);
+    box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.3);
+    transform: scale(1.05);
+}
+
+.tag-button:active {
+    transform: scale(0.95);
+}
+
+.tag-button.selected {
+    background: linear-gradient(to right, rgb(139, 92, 246), rgb(236, 72, 153));
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.3);
 }
