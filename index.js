@@ -230,11 +230,17 @@ tagButtons.forEach(button => {
 
 // 修改提交函數
 async function handleSubmit(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
+    // 獲取提交按鈕
+    const submitButton = document.querySelector('button[type="submit"]');
+    if (!submitButton) {
+        console.error('找不到提交按鈕');
+        return;
+    }
     
     const content = postContent.value.trim();
     
-    // 添加標籤驗證
     if (!selectedTag) {
         alert('請選擇一個標籤');
         return;
@@ -245,7 +251,7 @@ async function handleSubmit(e) {
         return;
     }
     
-    // 禁用提交按鈕
+    // 禁用按鈕並顯示加載狀態
     submitButton.disabled = true;
     submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
     
@@ -344,7 +350,7 @@ async function handleSubmit(e) {
         resetForm();
         
     } catch (error) {
-        handleSubmitError(error);
+        handleSubmitError(error, submitButton);
     }
 }
 
@@ -430,15 +436,88 @@ togglePostType.addEventListener('click', function() {
     }
 });
 
-// 添加錯誤處理函數
-function handleSubmitError(error) {
+// 修改錯誤處理函數
+function handleSubmitError(error, submitButton) {
     console.error('提交錯誤:', error);
     alert('提交失敗，請稍後重試');
-    submitButton.disabled = false;
-    submitButton.innerHTML = `
-        <span>發布貼文</span>
-        <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-        </svg>
-    `;
+    
+    if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.innerHTML = `
+            發布貼文
+            <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+        `;
+    }
 }
+
+// 修改 DOMContentLoaded 事件監聽器
+document.addEventListener('DOMContentLoaded', () => {
+    loadCacheFromStorage();
+    createStars();
+    updatePostCount();
+    
+    // 初始化所有事件監聽器
+    initializeEventListeners();
+});
+
+// 新增事件監聽器初始化函數
+function initializeEventListeners() {
+    // 表單提交事件
+    const submitButton = document.querySelector('button[type="submit"]');
+    if (submitButton) {
+        submitButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleSubmit();
+        });
+    }
+    
+    // 文本輸入事件
+    const postContent = document.getElementById('postContent');
+    if (postContent) {
+        postContent.addEventListener('input', updateCharCount);
+        postContent.addEventListener('change', updateCharCount);
+        postContent.addEventListener('keyup', updateCharCount);
+    }
+    
+    // 媒體上傳事件
+    const postMedia = document.getElementById('postMedia');
+    if (postMedia) {
+        postMedia.addEventListener('change', (e) => {
+            handleMediaFiles(e.target.files);
+        });
+    }
+}
+
+// 修改 CSS 樣式
+const style = document.createElement('style');
+style.textContent = `
+    .star {
+        position: absolute;
+        background: #6366f1;
+        border-radius: 50%;
+        opacity: 0;
+        animation: twinkle var(--duration) infinite;
+    }
+
+    @keyframes twinkle {
+        0%, 100% { opacity: 0; }
+        50% { opacity: 0.8; }
+    }
+
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #6366f1;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
