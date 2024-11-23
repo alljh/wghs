@@ -186,7 +186,6 @@ async function updatePostCount() {
 // 6. 初始化時加載緩存
 window.addEventListener('load', () => {
     loadCacheFromStorage();
-    createStars();
     updatePostCount();
 });
 
@@ -373,7 +372,7 @@ function resetForm() {
     setTimeout(() => {
         submitButton.innerHTML = `
             <span>發布貼文</span>
-            <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="h-8 w-8 ml-3" fill="none" stroke="currentColor" viewBox="0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
             </svg>
         `;
@@ -387,32 +386,7 @@ function resetForm() {
         btn.classList.add('text-violet-600');
     });
 }
-// 生成星星的函數
-function createStars() {
-    const container = document.getElementById('starsContainer');
-    const starCount = 150; // 增加星星數量
 
-    for (let i = 0; i < starCount; i++) {
-        const star = document.createElement('div');
-        star.className = 'star';
-        
-        const left = Math.random() * 100;
-        star.style.left = `${left}%`;
-        
-        const size = Math.random() * 4;
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-        
-        const duration = 4 + Math.random() * 8;
-        star.style.setProperty('--duration', `${duration}s`);
-        
-        const delay = Math.random() * 5;
-        star.style.animationDelay = `${delay}s`;
-        
-        container.appendChild(star);
-    }
-}
-window.addEventListener('load', createStars);
 
 let isReplyMode = false;
 const togglePostType = document.getElementById('togglePostType');
@@ -455,7 +429,6 @@ function handleSubmitError(error, submitButton) {
 // 修改 DOMContentLoaded 事件監聽器
 document.addEventListener('DOMContentLoaded', () => {
     loadCacheFromStorage();
-    createStars();
     updatePostCount();
     
     // 初始化所有事件監聽器
